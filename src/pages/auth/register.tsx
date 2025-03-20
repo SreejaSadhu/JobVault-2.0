@@ -1,0 +1,28 @@
+
+import React from 'react';
+import { AuthForm } from '@/components/auth/auth-form';
+import { Logo } from '@/components/ui/logo';
+import { Link } from 'react-router-dom';
+
+const Register = () => {
+  return (
+    <div className="min-h-screen flex flex-col">
+      <div className="container px-4 mx-auto py-8">
+        <div className="flex justify-between items-center">
+          <Logo />
+          <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
+            ← Back to home
+          </Link>
+        </div>
+      </div>
+      
+      <div className="flex-1 flex items-center justify-center p-4 md:p-8">
+        <div className="w-full max-w-md">
+          <AuthForm type="register" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Register;
