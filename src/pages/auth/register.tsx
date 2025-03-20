@@ -18,6 +18,12 @@ const Register = () => {
       
       <div className="flex-1 flex items-center justify-center p-4 md:p-8">
         <div className="w-full max-w-md">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold mb-2">Join JobVault</h1>
+            <p className="text-muted-foreground">
+              Create an account to access your college placement portal
+            </p>
+          </div>
           <AuthForm type="register" />
         </div>
       </div>
