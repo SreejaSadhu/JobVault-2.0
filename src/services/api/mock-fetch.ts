@@ -1,3 +1,4 @@
+
 import { toast } from 'sonner';
 
 // Types
@@ -265,8 +266,443 @@ export const mockFetch = async <T = any>(
     if (!isAuthenticated) {
       return { ok: false, status: 401, message: 'Unauthorized' };
     }
-    
-    // Implement other API routes here...
+
+    // JOB ROUTES
+    // Get all jobs
+    if (url === '/api/jobs' && options.method === 'GET') {
+      return {
+        ok: true,
+        status: 200,
+        data: db.jobs as T
+      };
+    }
+
+    // Get job by ID
+    if (url.match(/^\/api\/jobs\/[^\/]+$/) && options.method === 'GET') {
+      const jobId = url.split('/').pop();
+      const job = db.jobs.find((j: any) => j.id === jobId);
+      
+      if (!job) {
+        return { ok: false, status: 404, message: 'Job not found' };
+      }
+      
+      return { ok: true, status: 200, data: job as T };
+    }
+
+    // Create new job
+    if (url === '/api/jobs' && options.method === 'POST') {
+      // Only admin can create jobs
+      if (isAuthenticated.role !== 'admin') {
+        return { ok: false, status: 403, message: 'Forbidden: Only admins can create jobs' };
+      }
+      
+      const jobData = JSON.parse(options.body || '{}');
+      const newJob = {
+        id: `job_${Date.now()}`,
+        ...jobData,
+        createdAt: new Date().toISOString(),
+        createdBy: isAuthenticated.userId
+      };
+      
+      // Add to database
+      db.jobs.push(newJob);
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      // Create notification for all students
+      const students = db.users.filter((u: any) => u.role === 'student');
+      const newNotifications = students.map((student: any) => ({
+        id: `notification_${Date.now()}_${student.id}`,
+        userId: student.id,
+        title: 'New Job Posted',
+        message: `A new job for ${newJob.title} at ${newJob.company} has been posted.`,
+        type: 'job',
+        read: false,
+        createdAt: new Date().toISOString(),
+        relatedId: newJob.id
+      }));
+      
+      // Add notifications to database
+      db.notifications = [...db.notifications, ...newNotifications];
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      return { ok: true, status: 201, data: newJob as T };
+    }
+
+    // Update job
+    if (url.match(/^\/api\/jobs\/[^\/]+$/) && options.method === 'PUT') {
+      // Only admin can update jobs
+      if (isAuthenticated.role !== 'admin') {
+        return { ok: false, status: 403, message: 'Forbidden: Only admins can update jobs' };
+      }
+      
+      const jobId = url.split('/').pop();
+      const jobIndex = db.jobs.findIndex((j: any) => j.id === jobId);
+      
+      if (jobIndex === -1) {
+        return { ok: false, status: 404, message: 'Job not found' };
+      }
+      
+      const jobData = JSON.parse(options.body || '{}');
+      const updatedJob = {
+        ...db.jobs[jobIndex],
+        ...jobData,
+        id: jobId, // Ensure ID doesn't change
+        createdBy: db.jobs[jobIndex].createdBy, // Ensure creator doesn't change
+        createdAt: db.jobs[jobIndex].createdAt // Ensure creation date doesn't change
+      };
+      
+      // Update in database
+      db.jobs[jobIndex] = updatedJob;
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      return { ok: true, status: 200, data: updatedJob as T };
+    }
+
+    // Delete job
+    if (url.match(/^\/api\/jobs\/[^\/]+$/) && options.method === 'DELETE') {
+      // Only admin can delete jobs
+      if (isAuthenticated.role !== 'admin') {
+        return { ok: false, status: 403, message: 'Forbidden: Only admins can delete jobs' };
+      }
+      
+      const jobId = url.split('/').pop();
+      const jobIndex = db.jobs.findIndex((j: any) => j.id === jobId);
+      
+      if (jobIndex === -1) {
+        return { ok: false, status: 404, message: 'Job not found' };
+      }
+      
+      // Remove from database
+      db.jobs.splice(jobIndex, 1);
+      
+      // Remove related applications
+      db.applications = db.applications.filter((a: any) => a.jobId !== jobId);
+      
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      return { ok: true, status: 200 };
+    }
+
+    // JOB APPLICATION ROUTES
+    // Apply to job
+    if (url.match(/^\/api\/jobs\/[^\/]+\/apply$/) && options.method === 'POST') {
+      // Only students can apply to jobs
+      if (isAuthenticated.role !== 'student') {
+        return { ok: false, status: 403, message: 'Forbidden: Only students can apply to jobs' };
+      }
+      
+      const jobId = url.split('/')[3];
+      const job = db.jobs.find((j: any) => j.id === jobId);
+      
+      if (!job) {
+        return { ok: false, status: 404, message: 'Job not found' };
+      }
+      
+      // Check if already applied
+      const existingApplication = db.applications.find((a: any) => 
+        a.jobId === jobId && a.studentId === isAuthenticated.userId
+      );
+      
+      if (existingApplication) {
+        return { ok: false, status: 409, message: 'You have already applied to this job' };
+      }
+      
+      const applicationData = JSON.parse(options.body || '{}');
+      const newApplication = {
+        id: `application_${Date.now()}`,
+        jobId,
+        studentId: isAuthenticated.userId,
+        status: 'pending',
+        appliedAt: new Date().toISOString(),
+        ...applicationData
+      };
+      
+      // Add to database
+      db.applications.push(newApplication);
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      // Create notification for admin
+      const admins = db.users.filter((u: any) => u.role === 'admin');
+      const student = db.users.find((u: any) => u.id === isAuthenticated.userId);
+      
+      const newNotifications = admins.map((admin: any) => ({
+        id: `notification_${Date.now()}_${admin.id}`,
+        userId: admin.id,
+        title: 'New Job Application',
+        message: `${student.name} has applied for the ${job.title} position at ${job.company}.`,
+        type: 'application',
+        read: false,
+        createdAt: new Date().toISOString(),
+        relatedId: newApplication.id
+      }));
+      
+      // Add notifications to database
+      db.notifications = [...db.notifications, ...newNotifications];
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      return { ok: true, status: 201, data: newApplication as T };
+    }
+
+    // Get student's applications
+    if (url === '/api/applications/me' && options.method === 'GET') {
+      if (isAuthenticated.role !== 'student') {
+        return { ok: false, status: 403, message: 'Forbidden: Only students can view their applications' };
+      }
+      
+      const applications = db.applications.filter((a: any) => a.studentId === isAuthenticated.userId);
+      
+      return { ok: true, status: 200, data: applications as T };
+    }
+
+    // Get all applications (admin only)
+    if (url === '/api/applications' && options.method === 'GET') {
+      if (isAuthenticated.role !== 'admin') {
+        return { ok: false, status: 403, message: 'Forbidden: Only admins can view all applications' };
+      }
+      
+      return { ok: true, status: 200, data: db.applications as T };
+    }
+
+    // Update application status (admin only)
+    if (url.match(/^\/api\/applications\/[^\/]+\/status$/) && options.method === 'PUT') {
+      if (isAuthenticated.role !== 'admin') {
+        return { ok: false, status: 403, message: 'Forbidden: Only admins can update application status' };
+      }
+      
+      const applicationId = url.split('/')[3];
+      const applicationIndex = db.applications.findIndex((a: any) => a.id === applicationId);
+      
+      if (applicationIndex === -1) {
+        return { ok: false, status: 404, message: 'Application not found' };
+      }
+      
+      const { status } = JSON.parse(options.body || '{}');
+      if (!['pending', 'reviewing', 'accepted', 'rejected'].includes(status)) {
+        return { ok: false, status: 400, message: 'Invalid status' };
+      }
+      
+      // Update application
+      db.applications[applicationIndex].status = status;
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      // Create notification for student
+      const application = db.applications[applicationIndex];
+      const job = db.jobs.find((j: any) => j.id === application.jobId);
+      
+      const newNotification = {
+        id: `notification_${Date.now()}_${application.studentId}`,
+        userId: application.studentId,
+        title: 'Application Status Updated',
+        message: `Your application for ${job.title} at ${job.company} has been ${status}.`,
+        type: 'application',
+        read: false,
+        createdAt: new Date().toISOString(),
+        relatedId: application.id
+      };
+      
+      // Add notification to database
+      db.notifications.push(newNotification);
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      return { ok: true, status: 200, data: db.applications[applicationIndex] as T };
+    }
+
+    // EVENT ROUTES
+    // Get all events
+    if (url === '/api/events' && options.method === 'GET') {
+      return {
+        ok: true,
+        status: 200,
+        data: db.events as T
+      };
+    }
+
+    // Get event by ID
+    if (url.match(/^\/api\/events\/[^\/]+$/) && options.method === 'GET') {
+      const eventId = url.split('/').pop();
+      const event = db.events.find((e: any) => e.id === eventId);
+      
+      if (!event) {
+        return { ok: false, status: 404, message: 'Event not found' };
+      }
+      
+      return { ok: true, status: 200, data: event as T };
+    }
+
+    // Create new event (admin only)
+    if (url === '/api/events' && options.method === 'POST') {
+      if (isAuthenticated.role !== 'admin') {
+        return { ok: false, status: 403, message: 'Forbidden: Only admins can create events' };
+      }
+      
+      const eventData = JSON.parse(options.body || '{}');
+      const newEvent = {
+        id: `event_${Date.now()}`,
+        ...eventData,
+        createdBy: isAuthenticated.userId
+      };
+      
+      // Add to database
+      db.events.push(newEvent);
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      // Create notification for all students
+      const students = db.users.filter((u: any) => u.role === 'student');
+      const newNotifications = students.map((student: any) => ({
+        id: `notification_${Date.now()}_${student.id}`,
+        userId: student.id,
+        title: 'New Event Scheduled',
+        message: `A new event "${newEvent.title}" has been scheduled on ${new Date(newEvent.startDate).toLocaleDateString()}.`,
+        type: 'event',
+        read: false,
+        createdAt: new Date().toISOString(),
+        relatedId: newEvent.id
+      }));
+      
+      // Add notifications to database
+      db.notifications = [...db.notifications, ...newNotifications];
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      return { ok: true, status: 201, data: newEvent as T };
+    }
+
+    // Update event (admin only)
+    if (url.match(/^\/api\/events\/[^\/]+$/) && options.method === 'PUT') {
+      if (isAuthenticated.role !== 'admin') {
+        return { ok: false, status: 403, message: 'Forbidden: Only admins can update events' };
+      }
+      
+      const eventId = url.split('/').pop();
+      const eventIndex = db.events.findIndex((e: any) => e.id === eventId);
+      
+      if (eventIndex === -1) {
+        return { ok: false, status: 404, message: 'Event not found' };
+      }
+      
+      const eventData = JSON.parse(options.body || '{}');
+      const updatedEvent = {
+        ...db.events[eventIndex],
+        ...eventData,
+        id: eventId, // Ensure ID doesn't change
+        createdBy: db.events[eventIndex].createdBy // Ensure creator doesn't change
+      };
+      
+      // Update in database
+      db.events[eventIndex] = updatedEvent;
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      return { ok: true, status: 200, data: updatedEvent as T };
+    }
+
+    // Delete event (admin only)
+    if (url.match(/^\/api\/events\/[^\/]+$/) && options.method === 'DELETE') {
+      if (isAuthenticated.role !== 'admin') {
+        return { ok: false, status: 403, message: 'Forbidden: Only admins can delete events' };
+      }
+      
+      const eventId = url.split('/').pop();
+      const eventIndex = db.events.findIndex((e: any) => e.id === eventId);
+      
+      if (eventIndex === -1) {
+        return { ok: false, status: 404, message: 'Event not found' };
+      }
+      
+      // Remove from database
+      db.events.splice(eventIndex, 1);
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      return { ok: true, status: 200 };
+    }
+
+    // NOTIFICATION ROUTES
+    // Get user's notifications
+    if (url === '/api/notifications' && options.method === 'GET') {
+      const notifications = db.notifications.filter((n: any) => n.userId === isAuthenticated.userId);
+      
+      return { ok: true, status: 200, data: notifications as T };
+    }
+
+    // Mark notification as read
+    if (url.match(/^\/api\/notifications\/[^\/]+\/read$/) && options.method === 'PUT') {
+      const notificationId = url.split('/')[3];
+      const notificationIndex = db.notifications.findIndex(
+        (n: any) => n.id === notificationId && n.userId === isAuthenticated.userId
+      );
+      
+      if (notificationIndex === -1) {
+        return { ok: false, status: 404, message: 'Notification not found' };
+      }
+      
+      // Update notification
+      db.notifications[notificationIndex].read = true;
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      return { ok: true, status: 200, data: db.notifications[notificationIndex] as T };
+    }
+
+    // Mark all notifications as read
+    if (url === '/api/notifications/read-all' && options.method === 'PUT') {
+      // Update all notifications for the user
+      db.notifications.forEach((n: any, i: number) => {
+        if (n.userId === isAuthenticated.userId) {
+          db.notifications[i].read = true;
+        }
+      });
+      
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      return { ok: true, status: 200 };
+    }
+
+    // Delete notification
+    if (url.match(/^\/api\/notifications\/[^\/]+$/) && options.method === 'DELETE') {
+      const notificationId = url.split('/').pop();
+      const notificationIndex = db.notifications.findIndex(
+        (n: any) => n.id === notificationId && n.userId === isAuthenticated.userId
+      );
+      
+      if (notificationIndex === -1) {
+        return { ok: false, status: 404, message: 'Notification not found' };
+      }
+      
+      // Remove from database
+      db.notifications.splice(notificationIndex, 1);
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      return { ok: true, status: 200 };
+    }
+
+    // Send notification (admin only)
+    if (url === '/api/notifications/send' && options.method === 'POST') {
+      if (isAuthenticated.role !== 'admin') {
+        return { ok: false, status: 403, message: 'Forbidden: Only admins can send notifications' };
+      }
+      
+      const { userId, title, message, type, relatedId } = JSON.parse(options.body || '{}');
+      
+      // Validate user exists
+      const user = db.users.find((u: any) => u.id === userId);
+      if (!user) {
+        return { ok: false, status: 404, message: 'User not found' };
+      }
+      
+      const newNotification = {
+        id: `notification_${Date.now()}_${userId}`,
+        userId,
+        title,
+        message,
+        type,
+        read: false,
+        createdAt: new Date().toISOString(),
+        relatedId
+      };
+      
+      // Add to database
+      db.notifications.push(newNotification);
+      localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+      
+      return { ok: true, status: 201, data: newNotification as T };
+    }
     
     // Default response for unhandled routes
     return { 
