@@ -1,4 +1,3 @@
-
 import { toast } from 'sonner';
 
 // Types
@@ -15,20 +14,100 @@ interface MockFetchOptions {
   headers?: Record<string, string>;
 }
 
-// Mock database stored in localStorage
-const initializeMockDatabase = () => {
-  // Check if mock database exists
-  if (!localStorage.getItem('jobvault_mock_db')) {
-    // Initialize mock database with structure
-    const initialDb = {
-      users: [],
-      jobs: [],
-      applications: [],
-      events: [],
-      notifications: []
-    };
-    localStorage.setItem('jobvault_mock_db', JSON.stringify(initialDb));
+// Mock database initialization function
+export const initializeMockDatabase = () => {
+  // Check if already initialized with sample data
+  if (localStorage.getItem('jobvault_mock_db_initialized')) {
+    return;
   }
+  
+  // Create mock database structure with sample data
+  const db = {
+    users: [
+      {
+        id: 'user_admin_1',
+        name: 'Admin User',
+        email: 'admin@example.com',
+        password: 'password123', // In real app, this would be hashed
+        role: 'admin',
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: 'user_student_1',
+        name: 'Student User',
+        email: 'student@example.com',
+        password: 'password123', // In real app, this would be hashed
+        role: 'student',
+        createdAt: new Date().toISOString()
+      }
+    ],
+    jobs: [
+      {
+        id: 'job_1',
+        title: 'Software Engineer Intern',
+        company: 'Google',
+        location: 'Mountain View, CA',
+        description: 'Work on cutting-edge projects as a software engineering intern at Google.',
+        requirements: 'Strong programming skills in Java, Python, or C++. Knowledge of data structures and algorithms.',
+        salary: '$8,000/month',
+        deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days from now
+        createdAt: new Date().toISOString(),
+        createdBy: 'user_admin_1'
+      },
+      {
+        id: 'job_2',
+        title: 'Frontend Developer',
+        company: 'Facebook',
+        location: 'Menlo Park, CA',
+        description: 'Build user interfaces for Facebook products.',
+        requirements: 'Experience with React, JavaScript, and CSS.',
+        salary: '$120,000/year',
+        deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+        createdAt: new Date().toISOString(),
+        createdBy: 'user_admin_1'
+      }
+    ],
+    applications: [],
+    events: [
+      {
+        id: 'event_1',
+        title: 'Google Info Session',
+        description: 'Learn about opportunities at Google',
+        startDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
+        endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000).toISOString(), // 2 hours after start
+        location: 'Main Campus Auditorium',
+        company: 'Google',
+        eventType: 'info_session',
+        createdBy: 'user_admin_1'
+      },
+      {
+        id: 'event_2',
+        title: 'Resume Workshop',
+        description: 'Learn how to build an effective resume',
+        startDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days from now
+        endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000).toISOString(), // 3 hours after start
+        location: 'Online (Zoom)',
+        eventType: 'workshop',
+        createdBy: 'user_admin_1'
+      },
+      {
+        id: 'event_3',
+        title: 'Facebook Coding Challenge',
+        description: 'Online coding assessment for Facebook internships',
+        startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000).toISOString(), // 2 hours after start
+        location: 'Online',
+        company: 'Facebook',
+        eventType: 'test',
+        createdBy: 'user_admin_1'
+      }
+    ],
+    notifications: []
+  };
+  
+  // Save mock database and set initialization flag
+  localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
+  localStorage.setItem('jobvault_mock_db_initialized', 'true');
 };
 
 // Mock JWT generation (not real JWT, just for simulation)
@@ -204,100 +283,4 @@ export const mockFetch = async <T = any>(
       message: error instanceof Error ? error.message : 'Unknown error' 
     };
   }
-};
-
-// Initialize database with sample data
-export const initializeMockDatabase = () => {
-  // Check if already initialized
-  if (localStorage.getItem('jobvault_mock_db_initialized')) {
-    return;
-  }
-  
-  // Create mock database structure
-  const db = {
-    users: [
-      {
-        id: 'user_admin_1',
-        name: 'Admin User',
-        email: 'admin@example.com',
-        password: 'password123', // In real app, this would be hashed
-        role: 'admin',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'user_student_1',
-        name: 'Student User',
-        email: 'student@example.com',
-        password: 'password123', // In real app, this would be hashed
-        role: 'student',
-        createdAt: new Date().toISOString()
-      }
-    ],
-    jobs: [
-      {
-        id: 'job_1',
-        title: 'Software Engineer Intern',
-        company: 'Google',
-        location: 'Mountain View, CA',
-        description: 'Work on cutting-edge projects as a software engineering intern at Google.',
-        requirements: 'Strong programming skills in Java, Python, or C++. Knowledge of data structures and algorithms.',
-        salary: '$8,000/month',
-        deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days from now
-        createdAt: new Date().toISOString(),
-        createdBy: 'user_admin_1'
-      },
-      {
-        id: 'job_2',
-        title: 'Frontend Developer',
-        company: 'Facebook',
-        location: 'Menlo Park, CA',
-        description: 'Build user interfaces for Facebook products.',
-        requirements: 'Experience with React, JavaScript, and CSS.',
-        salary: '$120,000/year',
-        deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-        createdAt: new Date().toISOString(),
-        createdBy: 'user_admin_1'
-      }
-    ],
-    applications: [],
-    events: [
-      {
-        id: 'event_1',
-        title: 'Google Info Session',
-        description: 'Learn about opportunities at Google',
-        startDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
-        endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000).toISOString(), // 2 hours after start
-        location: 'Main Campus Auditorium',
-        company: 'Google',
-        eventType: 'info_session',
-        createdBy: 'user_admin_1'
-      },
-      {
-        id: 'event_2',
-        title: 'Resume Workshop',
-        description: 'Learn how to build an effective resume',
-        startDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days from now
-        endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000).toISOString(), // 3 hours after start
-        location: 'Online (Zoom)',
-        eventType: 'workshop',
-        createdBy: 'user_admin_1'
-      },
-      {
-        id: 'event_3',
-        title: 'Facebook Coding Challenge',
-        description: 'Online coding assessment for Facebook internships',
-        startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000).toISOString(), // 2 hours after start
-        location: 'Online',
-        company: 'Facebook',
-        eventType: 'test',
-        createdBy: 'user_admin_1'
-      }
-    ],
-    notifications: []
-  };
-  
-  // Save mock database
-  localStorage.setItem('jobvault_mock_db', JSON.stringify(db));
-  localStorage.setItem('jobvault_mock_db_initialized', 'true');
 };
