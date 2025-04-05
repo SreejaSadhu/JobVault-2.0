@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useEffect } from "react";
-import { initializeSampleData } from "@/services/api.service";
+import { initializeMockDatabase } from "@/services/api/mock-fetch";
 
 import Index from "./pages/Index";
 import Login from "./pages/auth/login";
@@ -16,12 +16,22 @@ import StudentDashboard from "./pages/dashboard/student";
 import AdminDashboard from "./pages/dashboard/admin";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Create a client for React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 const App = () => {
-  // Initialize sample data on app start
+  // Initialize mock data on app start
   useEffect(() => {
-    initializeSampleData();
+    // Initialize mock database with sample data
+    initializeMockDatabase();
   }, []);
 
   return (
