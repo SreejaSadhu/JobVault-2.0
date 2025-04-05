@@ -68,15 +68,36 @@ export const AuthForm: React.FC<AuthFormProps> = ({ type }) => {
         throw new Error('Please enter your password');
       }
 
-      // Simulate API call
+      // In a real app, this would call your backend API
+      // For this demo, we'll store in localStorage to simulate authentication
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       if (type === 'login') {
-        toast.success('Login successful!');
-        navigate(role === 'student' ? '/dashboard/student' : '/dashboard/admin');
+        // Simulate login - in a real app, this would validate against your backend
+        // For admin login check (just for demo purposes)
+        if (formData.email === 'admin@example.com' && formData.password === 'admin123') {
+          localStorage.setItem('isAuthenticated', 'true');
+          localStorage.setItem('userRole', 'admin');
+          localStorage.setItem('userEmail', formData.email);
+          toast.success('Admin login successful!');
+          navigate('/dashboard/admin');
+        } else {
+          // Regular user login
+          localStorage.setItem('isAuthenticated', 'true');
+          localStorage.setItem('userRole', role);
+          localStorage.setItem('userEmail', formData.email);
+          localStorage.setItem('userName', formData.email.split('@')[0]); // Fake name from email
+          toast.success('Login successful!');
+          navigate('/dashboard/student');
+        }
       } else {
-        toast.success('Registration successful! Please log in.');
-        navigate('/auth/login');
+        // Register
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('userRole', role);
+        localStorage.setItem('userEmail', formData.email);
+        localStorage.setItem('userName', formData.name);
+        toast.success('Registration successful!');
+        navigate('/dashboard/student');
       }
     } catch (error) {
       if (error instanceof Error) {
