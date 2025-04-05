@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Home, 
@@ -12,7 +12,8 @@ import {
   User,
   BookOpen,
   Briefcase,
-  Clock
+  Clock,
+  LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,8 +21,38 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Logo } from '@/components/ui/logo';
+import { useAuth } from '@/contexts/AuthContext';
+import { NotificationDropdown } from '@/components/notifications/notification-dropdown';
+import { JobPosting, JobService, CalendarEvent, CalendarService } from '@/services/api.service';
 
 const StudentDashboard = () => {
+  const { user, logout } = useAuth();
+  const [jobs, setJobs] = useState<JobPosting[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Fetch jobs and events in parallel
+        const [jobsData, eventsData] = await Promise.all([
+          JobService.getAll(),
+          CalendarService.getAll()
+        ]);
+        
+        setJobs(jobsData);
+        setEvents(eventsData);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
+
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}
@@ -54,6 +85,17 @@ const StudentDashboard = () => {
               </Link>
             ))}
           </div>
+          
+          <div className="mt-8 px-3">
+            <Button 
+              variant="outline"
+              className="w-full justify-start text-muted-foreground"
+              onClick={logout}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </Button>
+          </div>
         </nav>
       </aside>
 
@@ -73,9 +115,7 @@ const StudentDashboard = () => {
               />
             </div>
             
-            <Button size="icon" variant="ghost">
-              <Bell className="h-5 w-5" />
-            </Button>
+            <NotificationDropdown />
             
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
               <User className="h-4 w-4 text-primary" />
@@ -86,7 +126,9 @@ const StudentDashboard = () => {
         {/* Main content */}
         <main className="flex-1 p-6 overflow-auto">
           <div className="mb-8">
-            <h1 className="text-2xl font-bold mb-1">Good morning, Alex</h1>
+            <h1 className="text-2xl font-bold mb-1">
+              Good morning, {user?.name.split(' ')[0] || 'Student'}
+            </h1>
             <p className="text-muted-foreground">
               Here's what's happening with your placement journey today.
             </p>
@@ -243,63 +285,61 @@ const StudentDashboard = () => {
           <div className="mb-8">
             <h2 className="text-xl font-bold mb-4">Upcoming Tests</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[
-                {
-                  company: 'Amazon',
-                  position: 'Software Development Engineer',
-                  date: 'Tomorrow, 2:00 PM',
-                  duration: '90 minutes',
-                  topics: ['Data Structures', 'Algorithms', 'System Design']
-                },
-                {
-                  company: 'Microsoft',
-                  position: 'Frontend Developer',
-                  date: 'Nov 15, 10:00 AM',
-                  duration: '60 minutes',
-                  topics: ['JavaScript', 'React', 'CSS']
-                },
-                {
-                  company: 'Google',
-                  position: 'Software Engineer',
-                  date: 'Nov 18, 3:00 PM',
-                  duration: '120 minutes',
-                  topics: ['Problem Solving', 'Coding', 'Object-Oriented Design']
-                }
-              ].map((test, index) => (
-                <Card key={index} className="overflow-hidden">
-                  <div className="h-2 bg-primary w-full" />
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle>{test.company}</CardTitle>
-                        <CardDescription>{test.position}</CardDescription>
+              {events
+                .filter(event => event.eventType === 'test')
+                .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+                .slice(0, 3)
+                .map((test, index) => (
+                  <Card key={test.id} className="overflow-hidden">
+                    <div className="h-2 bg-primary w-full" />
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle>{test.company || 'Test'}</CardTitle>
+                          <CardDescription>{test.title}</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          <span className="text-xs">
+                            {new Date(test.endDate).getTime() - new Date(test.startDate).getTime() > 0 
+                              ? `${Math.round((new Date(test.endDate).getTime() - new Date(test.startDate).getTime()) / (1000 * 60))} minutes` 
+                              : 'N/A'}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Clock className="h-4 w-4" />
-                        <span className="text-xs">{test.duration}</span>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-2 text-sm mb-3">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>
+                          {new Date(test.startDate).toLocaleDateString(undefined, { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric', 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </span>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2 text-sm mb-3">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>{test.date}</span>
-                    </div>
-                    <div className="mb-4">
-                      <div className="text-xs text-muted-foreground mb-2">Topics covered:</div>
-                      <div className="flex flex-wrap gap-2">
-                        {test.topics.map((topic, i) => (
-                          <Badge key={i} variant="secondary">{topic}</Badge>
-                        ))}
+                      <div className="mb-4">
+                        <div className="text-xs text-muted-foreground mb-2">Location:</div>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="secondary">{test.location || 'Online'}</Badge>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <Button size="sm" variant="outline">Prepare</Button>
-                      <Button size="sm">View Details</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      <div className="flex justify-between items-center">
+                        <Button size="sm" variant="outline">Prepare</Button>
+                        <Button size="sm">View Details</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+              {events.filter(event => event.eventType === 'test').length === 0 && (
+                <div className="col-span-2 p-8 text-center text-muted-foreground">
+                  No upcoming tests scheduled at the moment.
+                </div>
+              )}
             </div>
           </div>
 

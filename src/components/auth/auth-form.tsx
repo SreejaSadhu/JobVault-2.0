@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Briefcase, 
   User, 
@@ -21,8 +21,9 @@ interface AuthFormProps {
 
 export const AuthForm: React.FC<AuthFormProps> = ({ type }) => {
   const navigate = useNavigate();
+  const { login, register } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [role, setRole] = useState<'student' | 'recruiter'>('student');
+  const [role, setRole] = useState<'student' | 'admin'>('student');
   
   const [formData, setFormData] = useState({
     name: '',
@@ -68,15 +69,16 @@ export const AuthForm: React.FC<AuthFormProps> = ({ type }) => {
         throw new Error('Please enter your password');
       }
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      let success = false;
       
       if (type === 'login') {
-        toast.success('Login successful!');
-        navigate(role === 'student' ? '/dashboard/student' : '/dashboard/admin');
+        success = await login(formData.email, formData.password, role);
       } else {
-        toast.success('Registration successful! Please log in.');
-        navigate('/auth/login');
+        success = await register(formData.name, formData.email, formData.password, role);
+      }
+      
+      if (!success) {
+        setLoading(false);
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -84,7 +86,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({ type }) => {
       } else {
         toast.error('An unexpected error occurred');
       }
-    } finally {
       setLoading(false);
     }
   };
@@ -125,7 +126,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ type }) => {
               type="button"
               variant={role === 'recruiter' ? 'default' : 'outline'}
               className="flex items-center justify-center gap-2 py-6"
-              onClick={() => setRole('recruiter')}
+              onClick={() => setRole('admin')}
             >
               <Briefcase className="h-5 w-5" />
               <span>Recruiter</span>
