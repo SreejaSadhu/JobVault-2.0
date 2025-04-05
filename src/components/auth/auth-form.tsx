@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -124,7 +125,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ type }) => {
             
             <Button
               type="button"
-              variant={role === 'recruiter' ? 'default' : 'outline'}
+              variant={role === 'admin' ? 'default' : 'outline'}
               className="flex items-center justify-center gap-2 py-6"
               onClick={() => setRole('admin')}
             >
